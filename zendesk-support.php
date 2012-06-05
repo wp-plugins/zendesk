@@ -1381,7 +1381,7 @@ class Zendesk_Support {
 				$html[] = '<tr>';
 				$html[] = '<td class="zendesk-ticket-id"><div class="zendesk-loader" style="display: none"></div><a class="zendesk-ticket-id-text zendesk-ticket-view" data-id="' . $ticket->nice_id . '" href="' . $this->_ticket_url( $ticket->nice_id ) . '">#' . $ticket->nice_id . '</a></td>';
 				$html[] = '<td><a class="zendesk-ticket-view zendesk-ticket-subject" data-id="' . $ticket->nice_id . '" href="' . $this->_ticket_url( $ticket->nice_id ) . '">' . $ticket->subject . '</a></td>';
-				$html[] = '<td class="zendesk-ticket-status"><a href="#" class="zendesk-status-' . $this->_ticket_status_class_name( $ticket->status_id ) . '">' . $this->_ticket_status( $ticket->status_id ) . '</a></td>';
+				$html[] = '<td class="zendesk-ticket-status"><a href="' . $this->_ticket_url( $ticket->nice_id ) . '" target="_blank" class="zendesk-status-' . $this->_ticket_status_class_name( $ticket->status_id ) . '">' . $this->_ticket_status( $ticket->status_id ) . '</a></td>';
 				$html[] = '</tr>';
 			}
 		} else {
