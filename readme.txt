@@ -4,7 +4,7 @@ Donate link: http://www.zendesk.com/
 Tags: zendesk, support, customer support, help desk, helpdesk, IT, customer, admin, bug, dropbox, ticket, widget, comments
 Requires at least: 2.9.2
 Tested up to: 3.1.2
-Stable tag: 1.0
+Stable tag: 1.1
 
 Bring the helpdesk into your blog
 
