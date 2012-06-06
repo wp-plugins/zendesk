@@ -6,7 +6,7 @@
  * but not defined in previous WordPress versions.
  * 
  * @author Konstantin Kovshenin
- * @version 1.1
+ * @version 1.2
  * 
  */
 
