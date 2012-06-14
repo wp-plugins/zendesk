@@ -1,10 +1,10 @@
 <?php
 /*
- * Plugin Name: Zendesk for WordPress
+ * Plugin Name: Zendesk Support for WordPress
  * Plugin URI: http://zendesk.com
- * Description: Zendesk for WordPress
+ * Description: Zendesk Support for WordPress
  * Author: Konstantin Kovshenin
- * Version: 1.1
+ * Version: 1.3
  * Author URI: http://kovshenin.com
  * 
  */
@@ -753,8 +753,8 @@ class Zendesk_Support {
 				
 				// Fetch the incoming data
 				$message = trim( stripslashes( $_REQUEST['message'] ) );
-				$comment_public = ( $_REQUEST['comment_public'] == 'true' ) ? true : false;
-				$post_reply = ( $_REQUEST['post_reply'] == 'true' ) ? true : false;
+				$comment_public = isset( $_REQUEST['comment_public'] ) ? true : false;
+				$post_reply = isset( $_REQUEST['post_reply'] ) ? true : false;
 				
 				// Let's format the new ticket
 				$subject = $post->post_title . ': ' . $this->_excerpt( strip_tags( $comment->comment_content ), 5 );
