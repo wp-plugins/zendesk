@@ -4,7 +4,7 @@
  * Plugin URI: http://zendesk.com
  * Description: Zendesk Support for WordPress
  * Author: Konstantin Kovshenin
- * Version: 1.4
+ * Version: 1.5.1
  * Author URI: http://kovshenin.com
  *
  */
@@ -78,8 +78,6 @@ class Zendesk_Support {
     // Load default settings if there are no settings
     if ( false === $this->settings )
       $this->_default_settings();
-
-    // $this->_delete_settings();
 
     $https = ( isset( $this->settings['ssl'] ) && $this->settings['ssl'] ) ? 'https' : 'http';
     $this->zendesk_url = $https . '://' . $this->settings['account'] . '.zendesk.com';
@@ -540,7 +538,7 @@ class Zendesk_Support {
     // Pick the right form processor
     switch ( $context ) {
       case 'login':
-        if ( ! isset( $form_data['username'], $form_data['password'] ) ) {
+        if ( $this->has_empty_fields($form_data) ) {
           $this->_add_notice( 'zendesk_login', __( 'All fields are required. Please try again.', 'zendesk' ), 'alert' );
           return;
         }
@@ -549,7 +547,6 @@ class Zendesk_Support {
         $password = $form_data['password'];
 
         $auth = $this->api->authenticate($username, $password);
-
         if ( ! is_wp_error( $auth ) ) {
           // Get the user views
           $views = $this->api->get_views();
@@ -567,7 +564,7 @@ class Zendesk_Support {
           $this->zendesk_user = array(
             'username' => $username,
             'password' => $password,
-            'roles' => $auth->roles,
+            'role' => $auth->role,
             'default_view' => array(
               'id' => $default_view->id,
               'title' => $default_view->title,
@@ -657,6 +654,14 @@ class Zendesk_Support {
 
         break;
     }
+  }
+
+  /*
+   * A helper function that checks if username or password field is empty,
+   * returning true if either one of these is empty or undefined.
+   */
+  private function has_empty_fields($form_data) {
+    return ! isset( $form_data['username'] ) || ! isset( $form_data['password'] ) || empty( $form_data['username'] ) || empty( $form_data['password'] );
   }
 
   /*
@@ -980,7 +985,6 @@ class Zendesk_Support {
 
       // If there was no error fetch further
       if ( ! is_wp_error( $ticket ) ) {
-
         // If there's a requester ID let's resolve it
         if ( isset( $ticket->requester_id ) ) {
           $requester = $this->api->get_user( $ticket->requester_id );
@@ -1005,7 +1009,7 @@ class Zendesk_Support {
         $table_values = array(
           __( 'Subject:', 'zendesk' ) => htmlspecialchars( $ticket->subject ),
           __( 'Description:', 'zendesk' ) => nl2br( htmlspecialchars( $ticket->description ) ),
-          __( 'Ticket Status:', 'zendesk' ) => '<span class="zendesk-status-' . $this->_ticket_status_class_name( $ticket->status_id ) . '">' . $this->_ticket_status( $ticket->status_id ) . '</span>',
+          __( 'Ticket Status:', 'zendesk' ) => '<span class="zendesk-status-' . $ticket->status . '">' . $this->_ticket_status( $ticket->status ) . '</span>',
           __( 'Requested by:', 'zendesk' ) => '<a target="_blank" href="' . $this->_user_url( $ticket->requester_id ) . '">' . $requester . '</a>',
           __( 'Created:', 'zendesk' ) => date( get_option('date_format') . ' \a\t ' . get_option('time_format'), strtotime( $ticket->created_at ) ),
           __( 'Updated:', 'zendesk' ) => date( get_option('date_format') . ' \a\t ' . get_option('time_format'), strtotime( $ticket->updated_at ) )
@@ -1036,8 +1040,8 @@ class Zendesk_Support {
           }
 
           $table_actions = array(
-            __( 'Comments:', 'zendesk' ) => '<a data-id="' . $ticket->nice_id . '" href="#" class="zendesk-view-comments">' . __( 'View the comments thread', 'zendesk' ) . '</a>',
-            __( 'View:', 'zendesk' ) => '<a target="_blank" href="' . $this->_ticket_url( $ticket->nice_id ) . '">' . __( 'View this ticket on Zendesk', 'zendesk' ) . '</a>'
+            __( 'Comments:', 'zendesk' ) => '<a data-id="' . $ticket->id . '" href="#" class="zendesk-view-comments">' . __( 'View the comments thread', 'zendesk' ) . '</a>',
+            __( 'View:', 'zendesk' ) => '<a target="_blank" href="' . $this->_ticket_url( $ticket->id ) . '">' . __( 'View this ticket on Zendesk', 'zendesk' ) . '</a>'
           );
 
         }
@@ -1081,7 +1085,7 @@ class Zendesk_Support {
         $response = array(
           'status' => 200,
           'ticket' => $ticket,
-          'html' => $html,
+          'html' => $html
         );
 
       } else {
@@ -1304,31 +1308,31 @@ class Zendesk_Support {
         <p class="zendesk-heading"><?php _e( 'Change view', 'zendesk' ); ?> <span class="zendesk-heading-link">(<a class="zendesk-change-view-cancel" href="<?php echo admin_url(); ?>"><?php _e( 'cancel', 'zendesk' ); ?></a>)</span></p>
         <table class="zendesk-views-table">
         <?php
-          if ( count( $views ) > 0 && is_array( $views ) ):
-            foreach ( $views as $view ):
+          if ( count( $views ) > 0 && is_array( $views ) ){
+            foreach ( $views as $view ) {
         ?>
           <tr>
             <td>
-              <?php if ( $view->is_active != 1 ): ?>
+              <?php if ( $view->active != 1 ){ ?>
               <span class="zendesk-view-empty">
                 <?php echo $view->title; ?>
               </span>
-              <?php else: ?>
+              <?php } else { ?>
               <a data-id="<?php echo $view->id; ?>" href="<?php echo admin_url(); ?>?zendesk-tickets-change-view=<?php echo $view->id; ?>">
                 <?php echo $view->title; ?>
               </a>
-              <?php endif; ?>
+              <?php } ?>
             </td>
           </tr>
         <?php
-            endforeach;
-          else: // no views
+            }
+          } else { // no views
         ?>
           <tr>
             <td><span class="description"><?php _e( 'There are no views available for this account.', 'zendesk' ); ?></span></td>
           </tr>
         <?php
-          endif;
+          }
         ?>
         </table>
       </div>
@@ -1381,9 +1385,9 @@ class Zendesk_Support {
           $ticket->subject = $this->_excerpt( $ticket->description, 15 );
 
         $html[] = '<tr>';
-        $html[] = '<td class="zendesk-ticket-id"><div class="zendesk-loader" style="display: none"></div><a class="zendesk-ticket-id-text zendesk-ticket-view" data-id="' . $ticket->nice_id . '" href="' . $this->_ticket_url( $ticket->nice_id ) . '">#' . $ticket->nice_id . '</a></td>';
-        $html[] = '<td><a class="zendesk-ticket-view zendesk-ticket-subject" data-id="' . $ticket->nice_id . '" href="' . $this->_ticket_url( $ticket->nice_id ) . '">' . $ticket->subject . '</a></td>';
-        $html[] = '<td class="zendesk-ticket-status"><a href="' . $this->_ticket_url( $ticket->nice_id ) . '" target="_blank" class="zendesk-status-' . $this->_ticket_status_class_name( $ticket->status_id ) . '">' . $this->_ticket_status( $ticket->status_id ) . '</a></td>';
+        $html[] = '<td class="zendesk-ticket-id"><div class="zendesk-loader" style="display: none"></div><a class="zendesk-ticket-id-text zendesk-ticket-view" data-id="' . $ticket->id . '" href="' . $this->_ticket_url( $ticket->id ) . '">#' . $ticket->id . '</a></td>';
+        $html[] = '<td><a class="zendesk-ticket-view zendesk-ticket-subject" data-id="' . $ticket->id . '" href="' . $this->_ticket_url( $ticket->id ) . '">' . $ticket->subject . '</a></td>';
+        $html[] = '<td class="zendesk-ticket-status"><a href="' . $this->_ticket_url( $ticket->id ) . '" target="_blank" class="zendesk-status-' . $ticket->status . '">' . $this->_ticket_status( $ticket->status ) . '</a></td>';
         $html[] = '</tr>';
       }
     } else {
@@ -1867,7 +1871,6 @@ class Zendesk_Support {
   private function _remote_auth_strategy_options() {
     return array(
       'jwt' => __( "JSON Web Token (Recommend)", 'zendesk' ),
-      'classic' => __( 'Zendesk Remote Authentication (Deprecated)', 'zendesk' ),
     );
   }
 
@@ -1892,11 +1895,6 @@ class Zendesk_Support {
         <option <?php selected( $value == $current_strategy ); ?> value="<?php echo $value; ?>"><?php echo $caption; ?></option>
       <?php endforeach; ?>
     </select>
-    <br />
-    <span class="description">
-      We <strong>strongly recommend</strong> using our <a href="https://support.zendesk.com/entries/23675367" target="_blank">JSON Web Token</a> strategy.<br />
-      Our "Zendesk Remote Authentication" will be deprecated soon.
-    </span>
   <?php
   }
 
@@ -2057,42 +2055,8 @@ class Zendesk_Support {
    * for translation. Used by the tickets widget.
    *
    */
-  private function _ticket_status( $status_id ) {
-    $statuses = array(
-      0 => __( 'New', 'zendesk' ),
-      1 => __( 'Open', 'zendesk' ),
-      2 => __( 'Pending', 'zendesk' ),
-      3 => __( 'Solved', 'zendesk' ),
-      4 => __( 'Closed', 'zendesk' ),
-    );
-
-    if ( array_key_exists( $status_id, $statuses ) )
-      return $statuses[$status_id];
-    else
-      return $status_id;
-  }
-
-  /*
-   * Helper: Ticket Status Class
-   *
-   * Same as above but non-localized lowercase name of the status,
-   * used to output the class names so that they're colorized via
-   * the stylesheets.
-   *
-   */
-  private function _ticket_status_class_name( $status_id ) {
-    $statuses = array(
-      0 => 'new',
-      1 => 'open',
-      2 => 'pending',
-      3 => 'solved',
-      4 => 'closed',
-    );
-
-    if ( array_key_exists( $status_id, $statuses ) )
-      return $statuses[$status_id];
-    else
-      return $status_id;
+  private function _ticket_status( $status ) {
+    return __( $status, 'zendesk' );
   }
 
   /*
@@ -2108,7 +2072,7 @@ class Zendesk_Support {
     // Current user or a specific user ID.
     $zendesk_user = $user_ID ? get_user_meta( $user_ID, 'zendesk_user_options', true ) : $this->zendesk_user;
 
-    if ( isset( $zendesk_user['roles'] ) && $zendesk_user['roles'] > 0 )
+    if ( isset( $zendesk_user['role'] ) && strcmp( $zendesk_user['role'], 'end-user' ) != 0 )
       return true;
     else
       return false;
@@ -2124,7 +2088,7 @@ class Zendesk_Support {
    */
   private function _get_agents() {
     global $wpdb;
-    $users = $wpdb->get_col( $wpdb->prepare( "SELECT $wpdb->users.ID FROM $wpdb->users" ) );
+    $users = $wpdb->get_col("SELECT $wpdb->users.ID FROM $wpdb->users");
     $data = array();
 
     foreach ( $users as $user_ID )
