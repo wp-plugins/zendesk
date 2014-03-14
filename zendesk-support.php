@@ -4,7 +4,7 @@
  * Plugin URI: http://zendesk.com
  * Description: Zendesk Support for WordPress
  * Author: Konstantin Kovshenin
- * Version: 1.3
+ * Version: 1.5.1
  * Author URI: http://kovshenin.com
  *
  */
