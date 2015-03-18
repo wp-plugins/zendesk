@@ -4,7 +4,7 @@
  * Plugin URI: http://zendesk.com
  * Description: Zendesk Support for WordPress
  * Author: Konstantin Kovshenin
- * Version: 1.5.1
+ * Version: 1.5.2
  * Author URI: http://kovshenin.com
  *
  */
@@ -404,7 +404,7 @@ class Zendesk_Support {
     $settings['version'] = $this->default_settings['version'];
 
     // Validate the Zendesk Account
-    if ( ! preg_match( '/^[a-zA-Z0-9]{0,}$/', $settings['account'] ) )
+    if ( ( ! preg_match( '/^[a-zA-Z][a-zA-Z0-9\-]{0,}[a-zA-Z0-9]$/', $settings['account'] ) && ! preg_match( '/^[a-zA-Z]{1}$/', $settings['account'] ) ) || ( strlen( $settings['account'] ) > 63 ) )
       unset( $settings['account'] );
 
     // Dashboard widgets visibility
