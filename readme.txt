@@ -1,10 +1,10 @@
 === Zendesk for Wordpress ===
-Contributors: kovshenin, jakeisonline
+Contributors: kovshenin, jakeisonline, mmolina
 Donate link: http://www.zendesk.com/
-Tags: zendesk, support, customer support, help desk, helpdesk, IT, customer, admin, bug, dropbox, ticket, widget, comments
+Tags: zendesk, support, customer support, help desk, helpdesk, IT, customer, admin, bug, ticket, widget, comments
 Requires at least: 2.9.2
-Tested up to: 3.8.1
-Stable tag: 1.5.2
+Tested up to: 4.1.1
+Stable tag: 1.6
 
 Bring the helpdesk into your blog
 
@@ -20,8 +20,13 @@ Have a healthy user base already? With Single Sign On, your users won't have to 
 * **Turn your blog comments straight into Zendesk tickets, with one click**
 Need to take that conversation offline, or escalate someones question or problem to someone else in the company. From the comments administration screen, you can take any comment made and turn it into a Ticket. The process is completely seamless for your users, and they'll appreciate the extra mile you're going to provide amazing customer service.
 
-* **The Zendesk dropbox**
+* **The Zendesk Web Widget**
+Add the Zendesk Web Widget to any webpage so users can search your knowledge base, chat with an agent or submit a ticket. You can have it on every page on your Wordpress blog, or choose where you want it with the use of a template tag.
+
+* **The Zendesk Feedback Tab**
 Add a tab to any webpage so users can search your knowledge base, chat with an agent or submit a ticket. You can completely customise the look and feel. You can have it on every page on your Wordpress blog, or choose where you want it with the use of a template tag.
+
+Note: Zendesk Dropbox users - the dropbox (also known as Zendesk Feedback Tab) is soon to be deprecated and has been replaced with the Web Widget. You can continue to use your dropbox for now but we encourage you to try the Web Widget (available in your plug-in) which allows you to easily embed ticketing, self-service and chat on your website as well as providing a much improved experience on mobile web browsers.
 
 * **Access your tickets from your dashboard**
 Full access to your views, tickets (including custom fields) and comments. Never lose sight on your support requests, no matter where you are.
@@ -37,7 +42,9 @@ Like the sound of this plugin but don't have a Zendesk account yet?  Sign up in 
 2. Remote authentication, super easy to set up
 3. Turn a comment into a ticket with ease
 4. The comment to ticket interface
-5. The Zendesk dropbox in action
+5. The Web Widget at its simplest, a Contact Form that creates a ticket in your Zendesk when filled out
+6. If you have a Zendesk Help Center, the Web Widget can help deflect tickets by showing your self-service content when users search for help
+7. The Zendesk dropbox in action
 
 == Installation ==
 
@@ -64,13 +71,22 @@ To upload the plugin through WordPress, instead of FTP:
 
 * **What template tags are available at what do they do?**
 
-  As of 1.0 there is one template tag available:
+  As of 1.6 there are two template tags available:
 
-  **`<?php if ( function_exists( 'the_zendesk_dropbox' ) ) the_zendesk_dropbox(); ?>`**
+  * ** the_zendesk_webwidget **
+  It can be used like: `<?php if ( function_exists( 'the_zendesk_webwidget' ) ) the_zendesk_webwidget(); ?>`**
 
-  This will place the Zendesk dropbox on to any template page you wish. **Make sure it's as close to the footer as possible.**
+  This will place the Zendesk Web Widget on to any template page you wish. **Make sure it's as close to the footer as possible.**
 
-  Alternatively, if you want the Zendesk dropbox placed on all pages and posts on your site, you can choose this option from this plugin's settings page, rather than using the template tag.
+  Alternatively, if you want the Zendesk Web Widget placed on all pages and posts on your site, you can choose this option from this plugin's settings page, rather than using the template tag.
+
+  * ** the_zendesk_dropbox **
+  It can be used like: `<?php if ( function_exists( 'the_zendesk_dropbox' ) ) the_zendesk_dropbox(); ?>`
+
+  This will place the Zendesk Feedback Tab (formerly known as dropbox) on to any template page you wish. **Make sure it's as close to the footer as possible.**
+
+  Alternatively, if you want the Zendesk Feedback Tab placed on all pages and posts on your site, you can choose this option from this plugin's settings page, rather than using the template tag.
+
 
 * **Why doesn't the "Convert to ticket" link show up on my comments?**
 
@@ -84,11 +100,14 @@ To upload the plugin through WordPress, instead of FTP:
 
   [We've made this super handy guide](https://support.zendesk.com/entries/20110872-setting-up-remote-authentication-for-wordpress "Setting up remote authentication for wordpress") on what it is and how to get started.
 
-* **Do I have to display any dashboard widgets, the Zendesk dropbox or the contact form?**
+* **Do I have to display any dashboard widgets, the Zendesk Web Widget, the Zendesk Fedback Tab or the contact form?**
 
   Nope! It's completely up to you. If you want, you can just use the plugin for single sign on with Zendesk.
 
 == Changelog ==
+
+= 1.6 =
+* Added ability to display the Embeddables Web Widget everywhere, or specifically using a template tag. More info at [zendesk.com/embeddables](http://zendesk.com/embeddables)
 
 = 1.5 =
 * Make this plugin to consume Zendesk API v2
