@@ -4,7 +4,7 @@
  * Plugin URI: http://zendesk.com
  * Description: Zendesk Support for WordPress
  * Author: Konstantin Kovshenin
- * Version: 1.5.2
+ * Version: 1.6
  * Author URI: http://kovshenin.com
  *
  */
@@ -22,8 +22,8 @@ require_once( plugin_dir_path( __FILE__ ) . 'JWT.php' );
  * Zendesk Support Class
  *
  * This is the main plugin class, handles all the plugin options, WordPress
- * hooks and filters, as well as options validation. The Zendesk Dropbox
- * is fully defined in this class too.
+ * hooks and filters, as well as options validation. The Zendesk Web Widget
+ * and the Zendesk Feedback Tab are fully defined in this class too.
  *
  */
 class Zendesk_Support {
@@ -63,6 +63,11 @@ class Zendesk_Support {
     // Let's see if Dropbox is set to auto
     if ( isset( $this->settings['dropbox_display'] ) && $this->settings['dropbox_display'] == 'auto' )
       add_action( 'wp_footer', array( &$this, 'dropbox_code' ) );
+
+    // Let's see if the visibility of the Web Widget is set to auto
+    if ( isset( $this->settings['webwidget_display'] ) && $this->settings['webwidget_display'] == 'auto' ) {
+      add_action( 'wp_footer', array( &$this, 'webwidget_code' ) );
+    }
   }
 
   /*
@@ -82,6 +87,12 @@ class Zendesk_Support {
     $https = ( isset( $this->settings['ssl'] ) && $this->settings['ssl'] ) ? 'https' : 'http';
     $this->zendesk_url = $https . '://' . $this->settings['account'] . '.zendesk.com';
     $this->api = new Zendesk_API( $this->zendesk_url );
+
+    // Fill in the Web Widget code if it's empty, we know the account, and they
+    // haven't set the widget off
+    if ( !$this->settings['webwidget_code'] && $this->settings['account'] && $this->settings['webwidget_display'] != 'none' ) {
+      $this->_set_default_webwidget_code();
+    }
 
     // Zendesk Authentication Magic
     $this->zendesk_user = false;
@@ -117,6 +128,36 @@ class Zendesk_Support {
   }
 
   /*
+   * Set the default Web Widget code
+   *
+   * If users set their account setting we'll help them setting their Web Widget
+   * code snippet for them. Once we have the snippet we also set the widget
+   * visibility to auto.
+   * They can of course overwrite these settings on the settings page.
+   *
+   */
+  private function _set_default_webwidget_code() {
+    if ( isset($this->settings['account']) && $this->settings['account'] ) {
+      $subdomain = $this->settings['account'];
+      $this->settings['webwidget_code'] = <<<EOJS
+<!-- Start of Zendesk Widget script -->
+<script>/*<![CDATA[*/window.zEmbed||function(e,t){var n,o,d,i,s,a=[],r=document.createElement("iframe");window.zEmbed=function(){a.push(arguments)},window.zE=window.zE||window.zEmbed,r.src="javascript:false",r.title="",r.role="presentation",(r.frameElement||r).style.cssText="display: none",d=document.getElementsByTagName("script"),d=d[d.length-1],d.parentNode.insertBefore(r,d),i=r.contentWindow,s=i.document;try{o=s}catch(c){n=document.domain,r.src='javascript:var d=document.open();d.domain="'+n+'";void(0);',o=s}o.open()._l=function(){var o=this.createElement("script");n&&(this.domain=n),o.id="js-iframe-async",o.src=e,this.t=+new Date,this.zendeskHost=t,this.zEQueue=a,this.body.appendChild(o)},o.write('<body onload="document._l();">'),o.close()}("//assets.zendesk.com/embeddable_framework/main.js","{$subdomain}.zendesk.com");/*]]>*/</script>
+<!-- End of Zendesk Widget script -->
+
+EOJS;
+      // We have a snippet now, display it by default unless the Feedback Tab is being used
+      if( $this->settings['dropbox_display'] == 'none' ) {
+        $this->settings['webwidget_display'] = 'auto';
+      } else {
+        $this->settings['webwidget_display'] = 'none';
+      }
+
+      // Update the settings so these changes are permanent
+      $this->_update_settings();
+    }
+  }
+
+  /*
    * Load Settings
    *
    * Private function to load current settings from the database. Sets
@@ -128,6 +169,7 @@ class Zendesk_Support {
     $this->remote_auth_settings = get_option( 'zendesk-settings-remote-auth', false );
 
     $this->default_settings = array(
+      'ssl' => false,
       'version' => 1,
       'account' => '',
 
@@ -146,7 +188,9 @@ class Zendesk_Support {
 
       'dropbox_display' => 'none',
       'dropbox_code' => '',
-      'ssl' => false
+
+      'webwidget_display' => 'auto',
+      'webwidget_code' => ''
     );
 
     $this->default_remote_auth_settings = array(
@@ -183,7 +227,7 @@ class Zendesk_Support {
   /*
    * Admin Initialization
    *
-   * Register a bunch of sections and field for the Zendesk plugin
+   * Register a bunch of sections and fields for the Zendesk plugin
    * options. All the options are stored in the $this->settings
    * array which is kept under the 'zendesk-settings' key inside
    * the WordPress database.
@@ -233,10 +277,17 @@ class Zendesk_Support {
       add_settings_field( 'contact_form_details', __( 'Details Label', 'zendesk' ), array( &$this, '_settings_field_contact_form_details' ), 'zendesk-settings', 'contact_form' );
       add_settings_field( 'contact_form_submit', __( 'Submit Button Label', 'zendesk' ), array( &$this, '_settings_field_contact_form_submit' ), 'zendesk-settings', 'contact_form' );
 
-      // Dropbox Settings
-      add_settings_section( 'dropbox', __( 'Dropbox Settings', 'zendesk' ), array( &$this, '_settings_section_dropbox' ), 'zendesk-settings' );
-      add_settings_field( 'dropbox_display', __( 'Display', 'zendesk' ), array( &$this, '_settings_field_dropbox_display' ), 'zendesk-settings', 'dropbox' );
-      add_settings_field( 'dropbox_code', __( 'Dropbox Code', 'zendesk' ), array( &$this, '_settings_field_dropbox_code' ), 'zendesk-settings', 'dropbox' );
+      // Dropbox Settings - Only appears if the Dropbox is active, or if the web widget is off and there is a Feedback Tab snipped in the settings
+      if( ( $this->settings['dropbox_display'] == 'auto' || $this->settings['dropbox_display'] == 'manual' ) || ( $this->settings['webwidget_display'] == 'none' && $this->settings['dropbox_code'] !== '' ) ) {
+        add_settings_section( 'dropbox', __( 'Dropbox Settings', 'zendesk' ), array( &$this, '_settings_section_dropbox' ), 'zendesk-settings' );
+        add_settings_field( 'dropbox_display', __( 'Display', 'zendesk' ), array( &$this, '_settings_field_dropbox_display' ), 'zendesk-settings', 'dropbox' );
+        add_settings_field( 'dropbox_code', __( 'Dropbox Code', 'zendesk' ), array( &$this, '_settings_field_dropbox_code' ), 'zendesk-settings', 'dropbox' );
+      }
+
+      // Web Widget Settings
+      add_settings_section( 'webwidget', __( 'Web Widget Settings', 'zendesk' ), array( &$this, '_settings_section_webwidget' ), 'zendesk-settings' );
+      add_settings_field( 'webwidget_display', __( 'Display', 'zendesk' ), array( &$this, '_settings_field_webwidget_display' ), 'zendesk-settings', 'webwidget' );
+      add_settings_field( 'webwidget_code', __( 'Web Widget Code', 'zendesk' ), array( &$this, '_settings_field_webwidget_code' ), 'zendesk-settings', 'webwidget' );
 
       // Remote Authentication Settings
       register_setting( 'zendesk-settings-remote-auth', 'zendesk-settings-remote-auth', array( &$this, '_validate_remote_auth_settings' ) );
@@ -282,7 +333,7 @@ class Zendesk_Support {
    * Admin Styles & Scripts
    *
    * This method is fired for any possible admin page, which is why
-   * we includet he main admin.js scripts and the colorbox to use
+   * we include the main admin.js scripts and the colorbox to use
    * for tickets widgets, and the comment to ticket forms.
    *
    */
@@ -321,6 +372,21 @@ class Zendesk_Support {
    */
   public function dropbox_code() {
     echo $this->settings['dropbox_code'];
+  }
+
+  /*
+   * Web Widget Code
+   *
+   * Displays the javascript code for the Zendesk Web Widget. The options
+   * in the $this->settings array are used for certain Zenbox options.
+   * Depending on the options chosen, this fire in wp_footer or via a
+   * custom template tag: the_zendesk_webwidget()
+   *
+   */
+  public function webwidget_code() {
+    if ( isset($this->settings['webwidget_code']) && $this->settings['webwidget_code'] ) {
+      echo $this->settings['webwidget_code'];
+    }
   }
 
   /*
@@ -421,11 +487,19 @@ class Zendesk_Support {
       $settings['contact_form_anonymous'] = false;
 
 
-    // Nuke login credentials if account has changed.
+    // Nuke login credentials and web widget snippet if account has changed.
     if ( $settings['account'] !== $this->settings['account'] ) {
       // Running a direct SQL query is *way* faster than meta querying users one by one.
       global $wpdb;
       $wpdb->query( "DELETE FROM $wpdb->usermeta WHERE meta_key = 'zendesk_user_options';" );
+
+      // Clear the web widget code so it gets generated again using the new account
+      $settings['webwidget_code'] = '';
+    }
+
+    // If the Web Widget has just been switched on, hide the Feedback Tab
+    if( $settings['webwidget_display'] != 'none' && $this->settings['webwidget_display'] == 'none' ) {
+      $settings['dropbox_display'] = 'none';
     }
 
     // Merge the submitted settings with the defaults. Second
@@ -1830,7 +1904,7 @@ class Zendesk_Support {
     <select name="zendesk-settings[dropbox_display]" id="zendesk_dropbox_display">
       <option value="none" <?php selected( $this->settings['dropbox_display'] == 'none' ); ?> ><?php _e( 'Do not display the Zendesk dropbox anywhere', 'zendesk' ); ?></option>
       <option value="auto" <?php selected( $this->settings['dropbox_display'] == 'auto' ); ?> ><?php _e( 'Display the Zendesk dropbox on all posts and pages', 'zendesk' ); ?></option>
-      <option value="manual" <?php selected( $this->settings['dropbox_display'] == 'manual' ); ?> ><?php _e( 'I will decide where the Zendesk dropbox displays using a template tag' ); ?></option>
+      <option value="manual" <?php selected( $this->settings['dropbox_display'] == 'manual' ); ?> ><?php _e( 'I will decide where the Zendesk dropbox displays using a template tag', 'zendesk' ); ?></option>
     </select>
 
   <?php
@@ -1848,6 +1922,55 @@ class Zendesk_Support {
   ?>
     <span class="description float-left"><strong><?php printf( __( 'Obtain your Dropbox code from the %s in your Zendesk.', 'zendesk' ), sprintf( '<a target="_blank" href="' . trailingslashit( $this->zendesk_url ) . 'account/dropboxes/new">%s</a>', __( 'Dropbox Configuration page', 'zendesk' ) ) ); ?></strong></span><br />
     <textarea id="zendesk_dropbox_code" cols="60" rows="5" name="zendesk-settings[dropbox_code]"><?php echo esc_textarea( $this->settings['dropbox_code'] ); ?></textarea><br />
+  <?php
+  }
+
+  /*
+   * Settings: Web Widget Section
+   *
+   */
+  public function _settings_section_webwidget() {
+    _e( 'The Zendesk Web Widget makes it easy for your customers to get the help they need, wherever they are on your website, with one click or tap.', 'zendesk' );
+  ?>
+    <br />
+    <?php printf( __( 'Activate your widget and access settings on the %s in your Zendesk.', 'zendesk' ), sprintf( '<a target="_blank" href="' . trailingslashit( $this->zendesk_url ) . 'agent/admin/widget">%s</a>', __( 'Widget Configuration page', 'zendesk' ) ) ); ?>
+    <br />
+    <strong> <?php _e( 'Note:', 'zendesk' ); ?> </strong>
+  <?php
+    _e( 'You\'ll need to visit this page initially to set up your widget.' );
+  }
+
+  /*
+   * Settings: Web Widget Display
+   *
+   * Boolean value which turns on or off the Zendesk Web Widget. This
+   * value is checked when registering Web Widget scripts, styles and
+   * code. Accessed from $this->settings['webwidget_display']
+   *
+   */
+  public function _settings_field_webwidget_display() {
+  ?>
+    <select name="zendesk-settings[webwidget_display]" id="zendesk_webwidget_display">
+      <option value="none" <?php selected( $this->settings['webwidget_display'] == 'none' ); ?> ><?php _e( 'Do not display the Zendesk Widget anywhere', 'zendesk' ); ?></option>
+      <option value="auto" <?php selected( $this->settings['webwidget_display'] == 'auto' ); ?> ><?php _e( 'Display the Zendesk Widget on all posts and pages', 'zendesk' ); ?></option>
+      <option value="manual" <?php selected( $this->settings['webwidget_display'] == 'manual' ); ?> ><?php _e( 'I will decide where the Zendesk Widget displays using a template tag', 'zendesk' ); ?></option>
+    </select>
+
+  <?php
+  }
+
+  /*
+   * Settings: Web Widget Code
+   *
+   * A text area to stick in the web widget code which is printed
+   * during the wp_footer action in the theme if the webwidget display
+   * setting is set to true. Access via $this->settings['webwidget_code']
+   *
+   */
+  public function _settings_field_webwidget_code() {
+  ?>
+    <span class="description float-left"><strong><?php _e( 'Advanced users only (no need to modify code below)', 'zendesk' ); ?></strong></span><br />
+    <textarea id="zendesk_webwidget_code" cols="60" rows="5" name="zendesk-settings[webwidget_code]"><?php echo esc_textarea( $this->settings['webwidget_code'] ); ?></textarea><br />
   <?php
   }
 
@@ -2199,6 +2322,18 @@ class Zendesk_Support {
     if ( isset( $this->settings['dropbox_display'] ) && $this->settings['dropbox_display'] == 'manual' )
       return $this->dropbox_code();
   }
+
+  /*
+   * Web Widget template tag
+   *
+   * Definition is outside of this class, logic is inside.
+   *
+   */
+  public function the_zendesk_webwidget() {
+    if ( isset( $this->settings['webwidget_display'] ) && $this->settings['webwidget_display'] == 'manual' )
+      return $this->webwidget_code();
+  }
+
 };
 
 // Register the Zendesk_Support class initialization during WordPress' init action. Globally available through $zendesk_support global.
@@ -2221,4 +2356,22 @@ function the_zendesk_dropbox() {
   // initialized before calling it's method.
   if ( $zendesk_support )
     $zendesk_support->the_zendesk_dropbox();
+}
+
+/*
+ * Web Widget template tag
+ *
+ * This is the template tag used by those users who only want the web widget
+ * displayed on certain pages.
+ *
+ * @global $zendesk_support
+ *
+ */
+function the_zendesk_webwidget() {
+  global $zendesk_support;
+
+  // Simply call the method inside the object. Make sure object is
+  // initialized before calling it's method.
+  if ( $zendesk_support )
+    $zendesk_support->the_zendesk_webwidget();
 }
