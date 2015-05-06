@@ -3,7 +3,7 @@
  *
  * @subpackage Admin Settings Javascript
  * @author Konstantin Kovshenin
- * @version 1.6.0
+ * @version 1.6.1
  *
  * http://zendesk.com
  *
