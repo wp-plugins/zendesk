@@ -32,7 +32,7 @@ class Zendesk_API {
 	public function __construct( $api_url ) {
 		$this->api_url = $api_url . '/api/v2';
 
-		if ( ! ZENDESK_DEBUG ) {
+		if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) {
 			$this->cache_timeout = 60;
 			$this->cache_timeout_views = 60 * 60;
 			$this->cache_timeout_ticket_fields = 60 * 60;
@@ -182,6 +182,29 @@ class Zendesk_API {
 		} else {
 			return new WP_Error( 'zendesk-api-error', __( 'A new comment could not be created at this time, please try again later.', 'zendesk' ) );
 		}
+	}
+
+	/*
+	 * Get Ticket Comments
+	 *
+	 * Asks the Zendesk API for the comments on a certain ticket, provided
+	 * the ticket id in the arguments. If the ticket was not found or is
+	 * inaccessible by the current user, returns a WP_Error. Values are
+	 * not cached.
+	 *
+	 */
+	public function get_comments( $ticket_id ) {
+		$result = $this->_get( 'tickets/' . $ticket_id . '/comments.json' );
+
+		if ( ! is_wp_error( $result ) && $result['response']['code'] == 200 ) {
+			$comments = json_decode( $result['body'] );
+			$comments = $comments->comments;
+			return $comments;
+		} else {
+			return new WP_Error( 'zendesk-api-error', __( 'Could not fetch the comments at this time, please try again later.', 'zendesk' ), array( 'status' => $result['response']['code'] ) );
+		}
+
+		return $comments;
 	}
 
 	/*
@@ -433,10 +456,17 @@ class Zendesk_API {
 	 */
 	private function _get( $endpoint, $extra_headers = array() ) {
 		$headers = array( 'Authorization' => 'Basic ' . base64_encode( $this->username . ':' . $this->password ), 'Content-Type' => 'application/json' );
-		$result = wp_remote_get( trailingslashit( $this->api_url ) . $endpoint, array( 'headers' => $headers, 'sslverify' => false ) );
+		$target_url = trailingslashit( $this->api_url ) . $endpoint;
+		$result = wp_remote_get( $target_url, array( 'headers' => $headers, 'sslverify' => false ) );
 
-		if ( ZENDESK_DEBUG && ( ! defined('DOING_AJAX') || ! DOING_AJAX ) && is_wp_error( $result ) )
-			echo 'Zendesk API GET Error (' . $endpoint . '): ' . $result->get_error_message() . '<br />';
+		if ( ( defined( 'WP_DEBUG' ) && WP_DEBUG ) && is_wp_error( $result ) ) {
+			$error_string = 'Zendesk API GET Error (' . $target_url . '): ' . $result->get_error_message();
+			if ( ! defined('DOING_AJAX') || ! DOING_AJAX ) {
+				echo $error_string  . '<br />';
+			}
+
+			Zendesk_Support::log( $error_string, TRUE );
+		}
 
 		return $result;
 	}
@@ -453,12 +483,17 @@ class Zendesk_API {
 		$post_data = json_encode( $post_data );
 		$headers = array( 'Authorization' => 'Basic ' . base64_encode( $this->username . ':' . $this->password ), 'Content-Type' => 'application/json' );
 		$headers = array_merge( $headers, $extra_headers );
+		$target_url = trailingslashit( $this->api_url ) . $endpoint;
+		$result = wp_remote_post( $target_url, array( 'redirection' => 0, 'headers' => $headers, 'body' => $post_data, 'sslverify' => false ) );
 
-		$result = wp_remote_post( trailingslashit( $this->api_url ) . $endpoint, array( 'redirection' => 0, 'headers' => $headers, 'body' => $post_data, 'sslverify' => false ) );
+		if ( ( defined( 'WP_DEBUG' ) && WP_DEBUG ) && is_wp_error( $result ) ) {
+			$error_string = 'Zendesk API POST Error (' . $target_url . '): ' . $result->get_error_message();
+			if ( ! defined('DOING_AJAX') || ! DOING_AJAX ) {
+				echo $error_string  . '<br />';
+			}
 
-		if ( ZENDESK_DEBUG && ( ! defined('DOING_AJAX') || ! DOING_AJAX ) && is_wp_error( $result ) )
-			echo 'Zendesk API POST Error (' . $endpoint . '): ' . $result->get_error_message() . '<br />';
-
+			Zendesk_Support::log( $error_string, TRUE );
+		}
 		return $result;
 	}
 
@@ -474,11 +509,18 @@ class Zendesk_API {
 		$put_data = json_encode( $put_data );
 		$headers = array( 'Authorization' => 'Basic ' . base64_encode( $this->username . ':' . $this->password ), 'Content-Type' => 'application/json' );
 		$headers = array_merge( $headers, $extra_headers );
-		$result = wp_remote_request( trailingslashit( $this->api_url ) . $endpoint, array( 'method' => 'PUT', 'headers' => $headers, 'body' => $put_data, 'sslverify' => false ) );
 
-		if ( ZENDESK_DEBUG && ( ! defined('DOING_AJAX') || ! DOING_AJAX ) && is_wp_error( $result ) )
-			echo 'Zendesk API PUT Error (' . $endpoint . '): ' . $result->get_error_message() . '<br />';
+		$target_url = trailingslashit( $this->api_url ) . $endpoint;
+		$result = wp_remote_request( $target_url, array( 'method' => 'PUT', 'headers' => $headers, 'body' => $put_data, 'sslverify' => false ) );
 
+		if ( ( defined( 'WP_DEBUG' ) && WP_DEBUG ) && is_wp_error( $result ) ) {
+			$error_string = 'Zendesk API PUT Error (' . $target_url . '): ' . $result->get_error_message();
+			if ( ! defined('DOING_AJAX') || ! DOING_AJAX ) {
+				echo $error_string  . '<br />';
+			}
+
+			Zendesk_Support::log( $error_string, TRUE );
+		}
 		return $result;
 	}
 

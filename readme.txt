@@ -3,8 +3,8 @@ Contributors: kovshenin, jakeisonline, mmolina
 Donate link: http://www.zendesk.com/
 Tags: zendesk, support, customer support, help desk, helpdesk, IT, customer, admin, bug, ticket, widget, comments
 Requires at least: 2.9.2
-Tested up to: 4.1.1
-Stable tag: 1.6
+Tested up to: 4.2.1
+Stable tag: 1.6.1
 
 Bring the helpdesk into your blog
 
@@ -73,15 +73,21 @@ To upload the plugin through WordPress, instead of FTP:
 
   As of 1.6 there are two template tags available:
 
-  * ** the_zendesk_webwidget **
-  It can be used like: `<?php if ( function_exists( 'the_zendesk_webwidget' ) ) the_zendesk_webwidget(); ?>`**
+  * **the_zendesk_webwidget**
+
+  It can be used like:
+
+  `<?php if ( function_exists( 'the_zendesk_webwidget' ) ) the_zendesk_webwidget(); ?>`
 
   This will place the Zendesk Web Widget on to any template page you wish. **Make sure it's as close to the footer as possible.**
 
   Alternatively, if you want the Zendesk Web Widget placed on all pages and posts on your site, you can choose this option from this plugin's settings page, rather than using the template tag.
 
-  * ** the_zendesk_dropbox **
-  It can be used like: `<?php if ( function_exists( 'the_zendesk_dropbox' ) ) the_zendesk_dropbox(); ?>`
+  * **the_zendesk_dropbox**
+
+  It can be used like:
+
+  `<?php if ( function_exists( 'the_zendesk_dropbox' ) ) the_zendesk_dropbox(); ?>`
 
   This will place the Zendesk Feedback Tab (formerly known as dropbox) on to any template page you wish. **Make sure it's as close to the footer as possible.**
 
@@ -105,6 +111,10 @@ To upload the plugin through WordPress, instead of FTP:
   Nope! It's completely up to you. If you want, you can just use the plugin for single sign on with Zendesk.
 
 == Changelog ==
+
+= 1.6.1 =
+* Improved performance when retrieving Agents for the Contact Form on settings page
+* Fix domain validation to accept domains starting with numbers
 
 = 1.6 =
 * Added ability to display the Embeddables Web Widget everywhere, or specifically using a template tag. More info at [zendesk.com/embeddables](http://zendesk.com/embeddables)

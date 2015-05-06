@@ -3,7 +3,7 @@
  *
  * @subpackage Admin Dashboard Javascript
  * @author Konstantin Kovshenin
- * @version 1.6.0
+ * @version 1.6.1
  *
  * http://zendesk.com
  *
@@ -152,20 +152,23 @@ jQuery(document).ready(function($) {
 			if (!colorbox_open) return;
 
 			if (response.status == 200) {
-
 				// Set the Zendesk dialog contents
 				$('#zendesk-dialog-body').html(response.html).autolink().mailto();
 				$('#zendesk-dialog-title').text('Zendesk ticket comments thread');
-
-				// Replace the "loading" colorbox with our dialog.
-				$.colorbox({
-						inline: true,
-						href: "#zendesk-dialog",
-						width: '680px',
-						maxHeight: '80%',
-						overlayClose: false
-				});
+			} else {
+				// Set the error message
+				$('#zendesk-dialog-body').html(create_notice(response.error));
+				$('#zendesk-dialog-title').text('');
 			}
+
+			// Replace the "loading" colorbox with our dialog.
+			$.colorbox({
+					inline: true,
+					href: "#zendesk-dialog",
+					width: '680px',
+					maxHeight: '80%',
+					overlayClose: false
+			}).resize();
 		}, 'json');
 
 		// Prevent further browsing.

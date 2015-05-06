@@ -4,13 +4,10 @@
  * Plugin URI: http://zendesk.com
  * Description: Zendesk Support for WordPress
  * Author: Konstantin Kovshenin
- * Version: 1.6
+ * Version: 1.6.1
  * Author URI: http://kovshenin.com
  *
  */
-
-// Debug
-define( 'ZENDESK_DEBUG', false );
 
 // Load Zendesk API Class & Compatibility hacks
 require_once( plugin_dir_path( __FILE__ ) . 'zendesk-compatibility.php' );
@@ -254,7 +251,7 @@ EOJS;
     add_settings_field( 'account', __( 'Subdomain', 'zendesk' ), array( &$this, '_settings_field_account' ), 'zendesk-settings', 'authentication' );
 
     // Show SSL when debug is on.
-    if ( ZENDESK_DEBUG )
+    if ( defined( 'WP_DEBUG' ) && WP_DEBUG )
       add_settings_field( 'ssl', __( 'Use SSL', 'zendesk' ), array( &$this, '_settings_field_ssl' ), 'zendesk-settings', 'authentication' );
 
     // Display the rest of the settings only if a Zendesk account has been specified.
@@ -421,7 +418,7 @@ EOJS;
   </div>
   <?php
     // Print settings array for debug.
-    if ( ZENDESK_DEBUG )  echo '<pre>' . print_r($this->settings, true) . '</pre>';
+    if ( defined( 'WP_DEBUG' ) && WP_DEBUG )  echo '<pre>' . print_r($this->settings, true) . '</pre>';
   }
 
   /*
@@ -470,7 +467,7 @@ EOJS;
     $settings['version'] = $this->default_settings['version'];
 
     // Validate the Zendesk Account
-    if ( ( ! preg_match( '/^[a-zA-Z][a-zA-Z0-9\-]{0,}[a-zA-Z0-9]$/', $settings['account'] ) && ! preg_match( '/^[a-zA-Z]{1}$/', $settings['account'] ) ) || ( strlen( $settings['account'] ) > 63 ) )
+    if ( ( ! preg_match( '/^[a-zA-Z0-9][a-zA-Z0-9\-]{0,}[a-zA-Z0-9]$/', $settings['account'] ) && ! preg_match( '/^[a-zA-Z0-9]{1}$/', $settings['account'] ) ) || ( strlen( $settings['account'] ) > 63 ) )
       unset( $settings['account'] );
 
     // Dashboard widgets visibility
@@ -927,14 +924,14 @@ EOJS;
     if ( isset( $_REQUEST['ticket_id'] ) && is_numeric( $_REQUEST['ticket_id'] ) && $this->_is_agent() ) {
       $ticket_id = $_REQUEST['ticket_id'];
 
-      $ticket = $this->api->get_ticket_info( $ticket_id );
+      $comments = $this->api->get_comments( $ticket_id );
 
-      if ( ! is_wp_error( $ticket ) ) {
+      if ( ! is_wp_error( $comments ) ) {
 
         $html = array();
         $html[] = '<div class="zendesk-comment-to-ticket">';
 
-        foreach ( $ticket->comments as $comment ) {
+        foreach ( $comments as $comment ) {
 
           $author = $this->api->get_user( $comment->author_id );
 
@@ -942,13 +939,15 @@ EOJS;
             $author = null;
             $author->name = 'Unknown';
             $author->email = 'unknown@zendesk.com';
+          } else {
+            $author = $author->user;
           }
 
           $html[] = '<a target="_blank" href="' . $this->_user_url( $comment->author_id ) . '">' . get_avatar( $author->email, 40 ) . '</a>';
           $html[] = '<div class="zendesk-comment-box">';
             $html[] = '<div class="zendesk-comment-arrow"></div>';
             $html[] = '<p class="zendesk-author">' . sprintf( __( '%s said...', 'zendesk' ), '<a target="_blank" href="' . $this->_user_url( $comment->author_id ) . '">' . $author->name .  '</a>' ) . '</p>';
-            $html[] = wpautop( $comment->value );
+            $html[] = wpautop( $comment->body );
 
             // Let's see if we have any attachments there.
             if ( isset( $comment->attachments ) && count( $comment->attachments) ) {
@@ -975,6 +974,13 @@ EOJS;
         $response = array(
           'status' => 200,
           'html' => $html
+        );
+      } else {
+        $error_data = $comments->get_error_data();
+
+        $response = array(
+          'status' => $error_data['status'],
+          'error' => $comments->get_error_message()
         );
       }
     }
@@ -1064,7 +1070,7 @@ EOJS;
           $requester = $this->api->get_user( $ticket->requester_id );
 
           if ( ! is_wp_error( $requester ) ) {
-            $requester = $requester->name;
+            $requester = $requester->user->name;
           } else {
             $requester = __( 'Unknown', 'zendesk' );
           }
@@ -1093,22 +1099,34 @@ EOJS;
         if ( $this->_is_agent() ) {
 
           // Custom fields
-          $table_custom_field_values = array();
+          $table_custom_fields = array();
           $ticket_fields = $this->api->get_ticket_fields();
 
           // Perhaps optimize this a little bit, though this is
           // the way values come in from Zendesk.
-          if ( ! is_wp_error( $ticket_fields ) && ! empty( $ticket_fields ) ) {
-            foreach ( $ticket_fields as $field ) {
-              if ( ! isset( $field->custom_field_options ) ) continue;
-              foreach ( $ticket->ticket_field_entries as $field_entry ) {
-                if ( $field_entry->ticket_field_id == $field->id ) {
-                  foreach ( $field->custom_field_options as $option ) {
-                    if ( $option->value == $field_entry->value ) {
-                      $table_custom_field_values[$field->title] = $option->name;
-                    }
+          if ( ! is_wp_error( $ticket_fields ) && ! empty( $ticket->custom_fields ) ) {
+            $custom_fields_array = array();
+            // Build an array with custom field values and ID as index
+            foreach ( $ticket->custom_fields as $custom_field ) {
+              $custom_fields_array[ $custom_field->id ] = $custom_field->value;
+            }
+            $custom_fields_ids = array_keys( $custom_fields_array );
+
+            foreach ( $ticket_fields as $ticket_field ) {
+              if ( !in_array( $ticket_field->id, $custom_fields_ids ) )
+                continue;
+
+              // Use numeric index in case there are duplicate field titles
+              $table_custom_fields[$ticket_field->id] = array( 'title' => $ticket_field->title, 'value' => '' );
+              // Use readable value for 'tagger' types
+              if ( 'tagger' === $ticket_field->type ) {
+                foreach ( $ticket_field->custom_field_options as $custom_field_option ) {
+                  if ( $custom_fields_array[$ticket_field->id] === $custom_field_option->value ) {
+                      $table_custom_fields[$ticket_field->id]['value'] = $custom_field_option->name;
                   }
                 }
+              } else {
+                $table_custom_fields[$ticket_field->id]['value'] = $custom_fields_array[$ticket_field->id];
               }
             }
           }
@@ -1134,13 +1152,13 @@ EOJS;
         }
 
         // Custom Fields Table (agents only)
-        if ( isset( $table_custom_field_values ) && ! empty( $table_custom_field_values ) ) {
+        if ( isset( $table_custom_fields ) && ! empty( $table_custom_fields ) ) {
           $html .= '<tr><td colspan="2"><p class="zendesk-heading" style="margin-bottom: 0px;">' . __( 'Custom Fields', 'zendesk' ) . '</p></td></tr>';
 
-          foreach ( $table_custom_field_values as $label => $value ) {
-            if ( strlen( $value ) < 1 ) continue;
-            $html .= '<tr><td class="zendesk-first"><span class="description">' . $label . '</span></td>';
-            $html .= '<td>' . $value . '</td></tr>';
+          foreach ( $table_custom_fields as $table_custom_field ) {
+            if ( strlen( $table_custom_field['value'] ) < 1 ) continue;
+            $html .= '<tr><td class="zendesk-first"><span class="description">' . esc_html( $table_custom_field['title'] ) . '</span></td>';
+            $html .= '<td>' . esc_html( $table_custom_field['value'] ) . '</td></tr>';
           }
         }
 
@@ -2204,19 +2222,29 @@ EOJS;
   /*
    * Helper: Get Agents
    *
-   * Scans the WordPress database for all users, loops through each
-   * and every one of them, returns an array of those who are authenticated
-   * with Zendesk and who's roles are agents.
+   * Scans the WordPress database for all users that are authenticated with
+   * Zendesk and whose roles are agents.
    *
    */
   private function _get_agents() {
-    global $wpdb;
-    $users = $wpdb->get_col("SELECT $wpdb->users.ID FROM $wpdb->users");
+    // 20150430-MM Before this we were retrieving all the users of the blog, to
+    // then loop trough the results and check if each of them _is_agent()
+    // This could create memory problems for blogs with thousands of users, so
+    // now we retrieve only users that we know for sure are authenticated with
+    // Zendesk, using the Zendesk user options key as a filter
+    $args = array(
+      'blog_id'       => get_current_blog_id(),
+      'meta_key'      => 'zendesk_user_options',
+      'meta_value'    => NULL,
+      'meta_compare'  => '!=',
+    );
+    $users = get_users($args);
+    
     $data = array();
 
-    foreach ( $users as $user_ID )
-      if ( $this->_is_agent( $user_ID ) )
-        $data[] = get_userdata( $user_ID );
+    foreach ( $users as $user )
+      if ( $this->_is_agent( $user->ID ) )
+        $data[] = get_userdata( $user->ID );
 
     return $data;
   }
@@ -2334,6 +2362,50 @@ EOJS;
       return $this->webwidget_code();
   }
 
+  /*
+   * Log information for debugging
+   * @param string $msg the message to be logged
+   */
+  public static function log($msg = NULL, $backtrace = FALSE)
+  {
+    if ( defined( 'WP_DEBUG' ) && FALSE === WP_DEBUG )
+      return;
+
+    $file = dirname( __FILE__ ) . '/~zendesk_log.txt';
+    $fh = @fopen( $file, 'a+' );
+    if ( FALSE !== $fh ) {
+      if ( NULL === $msg ) {
+        fwrite( $fh, date( "\r\nY-m-d H:i:s:\r\n" ) );
+      } else {
+        fwrite( $fh, date( 'Y-m-d H:i:s - ') . $msg . PHP_EOL );
+      }
+
+      if ( $backtrace ) {
+        $callers = debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS );
+        array_shift( $callers );
+        $path = dirname( dirname( dirname( plugin_dir_path( __FILE__ ) ) ) ) . DIRECTORY_SEPARATOR;
+
+        $n = 1;
+        foreach ( $callers as $caller ) {
+          $func = $caller[ 'function' ] . '()';
+          if ( isset( $caller[ 'class' ] ) && ! empty( $caller[ 'class' ] ) ) {
+            $type = '->';
+            if ( isset( $caller[ 'type' ] ) && ! empty( $caller[ 'type' ] ) )
+              $type = $caller[ 'type' ];
+            $func = $caller[ 'class' ] . $type . $func;
+          }
+          $file = isset( $caller[ 'file' ] ) ? $caller[ 'file' ] : '';
+          $file = str_replace( $path, '', $file );
+          if ( isset( $caller[ 'line' ] ) && ! empty( $caller[ 'line' ] ) )
+            $file .= ':' . $caller[ 'line' ];
+          $frame = $func . ' - ' . $file;
+          fwrite( $fh, '    #' . ( $n++ ) . ': ' . $frame . PHP_EOL );
+        }
+      }
+
+      fclose( $fh );
+    }
+  }
 };
 
 // Register the Zendesk_Support class initialization during WordPress' init action. Globally available through $zendesk_support global.
