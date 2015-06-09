@@ -1,12 +1,6 @@
 /*
  * Zendesk for WordPress
  *
- * @subpackage Admin Dashboard Stylesheets
- * @author Konstantin Kovshenin
- * @version 1.6.1
- *
- * http://zendesk.com
- *
  * The following stylesheet is present on each and every admin page
  * in WordPress, thus the "zendesk" prefix and postfix isolation. Mostly
  * used for the dashboard widget (contact form and tickets widget) as

@@ -1,12 +1,6 @@
 /*
  * Zendesk for WordPress
  *
- * @subpackage Admin Dashboard Javascript
- * @author Konstantin Kovshenin
- * @version 1.6.1
- *
- * http://zendesk.com
- *
  * The following is the javascript code, mostly for the dashboard
  * widgets, changing the views and viewing single tickets. The single
  * ticket request is an AJAX call handled by WordPress and the plugin

@@ -1,10 +1,11 @@
 === Zendesk for Wordpress ===
-Contributors: kovshenin, jakeisonline, mmolina
+Contributors: zendesk_official
+License: Apache 2.0
 Donate link: http://www.zendesk.com/
 Tags: zendesk, support, customer support, help desk, helpdesk, IT, customer, admin, bug, ticket, widget, comments
 Requires at least: 2.9.2
 Tested up to: 4.2.1
-Stable tag: 1.6.1
+Stable tag: 1.6.2
 
 Bring the helpdesk into your blog
 
@@ -112,6 +113,9 @@ To upload the plugin through WordPress, instead of FTP:
 
 == Changelog ==
 
+= 1.6.2 =
+* Updated the JWT Version we use to improve security
+
 = 1.6.1 =
 * Improved performance when retrieving Agents for the Contact Form on settings page
 * Fix domain validation to accept domains starting with numbers
@@ -133,3 +137,8 @@ To upload the plugin through WordPress, instead of FTP:
 == Upgrade Notice ==
 
 No upgrades at this time.
+
+== Publishing a new version of the plugin on wordpress.org ==
+
+If you are a developer looking to release a new version of the plugin
+See: https://zendesk.atlassian.net/wiki/display/ENG/Publishing+new+versions+of+plugins+to+Wordpress.org

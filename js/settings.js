@@ -1,12 +1,6 @@
 /*
  * Zendesk for WordPress
  *
- * @subpackage Admin Settings Javascript
- * @author Konstantin Kovshenin
- * @version 1.6.1
- *
- * http://zendesk.com
- *
  * This javascript is enqueued on the Zendesk settings page, has
  * support for placeholders (for anti-HTML5 browsers), child settings
  * hiding and more.
